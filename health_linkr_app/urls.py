@@ -7,6 +7,8 @@ urlpatterns = [
   path('clinic/<int:clinic_id>/', views.clinic_detail, name='clinic_detail'),
   path('book/<int:doctor_id>/', views.book_appointment, name='book_appointment'),
   path('appointments/', views.appointments, name='appointments'),
+  path('appointment/<int:appointment_id>/cancel/', views.cancel_appointment, name='cancel_appointment'),
+  path('appointment/<int:appointment_id>/reschedule/', views.reschedule_appointment, name='reschedule_appointment'),
   path('login/', auth_views.LoginView.as_view(template_name='login.html', next_page='home'), name='login'),
   path('logout/', auth_views.LogoutView.as_view(next_page='home'), name='logout'),
   path('signup/', views.signup, name='signup'),

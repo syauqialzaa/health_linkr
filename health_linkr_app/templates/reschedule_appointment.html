@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container">
+  <div class="row justify-content-center">
+    <div class="col-md-8">
+      <h1 class="mb-4">Reschedule Appointment</h1>
+      
+      <div class="card mb-4">
+        <div class="card-header">
+          <h5 class="mb-0">Current Appointment Details</h5>
+        </div>
+        <div class="card-body">
+          <p><strong>Doctor:</strong> Dr. {{ appointment.doctor.user.get_full_name }}</p>
+          <p><strong>Current Date/Time:</strong> {{ appointment.datetime|date:"l, F j, Y" }} at {{ appointment.datetime|time:"g:i A" }}</p>
+          {% if appointment.service %}
+            <p><strong>Service:</strong> {{ appointment.service.name }}</p>
+          {% endif %}
+          {% if appointment.notes %}
+            <p><strong>Notes:</strong> {{ appointment.notes }}</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <form method="post">
+        {% csrf_token %}
+        <div class="card mb-4">
+          <div class="card-header">
+            <h5 class="mb-0">Select New Time Slot</h5>
+          </div>
+          <div class="card-body">
+            {% if available_slots %}
+              <div class="form-group">
+                <select name="slot" id="slot" class="form-select" required>
+                  <option value="">Choose a new time slot</option>
+                  {% for slot in available_slots %}
+                    <option value="{{ slot.id }}">
+                      {{ slot.start_time|date:"l, F j, Y" }} at {{ slot.start_time|time:"g:i A" }}
+                    </option>
+                  {% endfor %}
+                </select>
+              </div>
+            {% else %}
+              <div class="alert alert-warning">
+                No available time slots found. Please try again later or contact the clinic.
+              </div>
+            {% endif %}
+          </div>
+        </div>
+
+        {% if available_slots %}
+          <button type="submit" class="btn btn-primary">Reschedule Appointment</button>
+        {% endif %}
+        <a href="{% url 'appointments' %}" class="btn btn-secondary">Back to Appointments</a>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

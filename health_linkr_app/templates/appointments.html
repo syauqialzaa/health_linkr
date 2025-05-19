@@ -1,9 +1,62 @@
 {% extends 'base.html' %}
 {% block content %}
-<h1>Your Appointments</h1>
-<ul>
-  {% for appt in appointments %}
-    <li>{{ appt.datetime }} with Dr. {{ appt.doctor.user.get_full_name }} - {{ appt.status }}</li>
-  {% endfor %}
-</ul>
+<div class="container">
+  <h1 class="mb-4">Your Appointments</h1>
+  
+  {% if appointments %}
+    <div class="row">
+      {% for appt in appointments %}
+        <div class="col-md-6 mb-4">
+          <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+              <h5 class="mb-0">
+                Appointment with Dr. {{ appt.doctor.user.get_full_name }}
+              </h5>
+              <span class="badge {% if appt.status == 'CONFIRMED' %}bg-success{% elif appt.status == 'PENDING' %}bg-warning{% elif appt.status == 'CANCELLED' %}bg-danger{% else %}bg-secondary{% endif %}">
+                {{ appt.status }}
+              </span>
+            </div>
+            <div class="card-body">
+              <p><strong>Date:</strong> {{ appt.datetime|date:"l, F j, Y" }}</p>
+              <p><strong>Time:</strong> {{ appt.datetime|time:"g:i A" }}</p>
+              {% if appt.service %}
+                <p><strong>Service:</strong> {{ appt.service.name }}</p>
+              {% endif %}
+              <p><strong>Clinic:</strong> {{ appt.doctor.clinic.name }}</p>
+              {% if appt.notes %}
+                <p><strong>Notes:</strong> {{ appt.notes }}</p>
+              {% endif %}
+              {% if appt.status == 'CANCELLED' and appt.cancellation_reason %}
+                <p><strong>Cancellation Reason:</strong> {{ appt.cancellation_reason }}</p>
+              {% endif %}
+            </div>
+            {% if appt.status == 'PENDING' or appt.status == 'CONFIRMED' %}
+              <div class="card-footer">
+                <form method="post" action="{% url 'cancel_appointment' appt.id %}" style="display: inline;">
+                  {% csrf_token %}
+                  <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to cancel this appointment?')">
+                    Cancel Appointment
+                  </button>
+                </form>
+                {% if appt.status == 'PENDING' %}
+                  <form method="post" action="{% url 'reschedule_appointment' appt.id %}" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-primary btn-sm">
+                      Reschedule
+                    </button>
+                  </form>
+                {% endif %}
+              </div>
+            {% endif %}
+          </div>
+        </div>
+      {% endfor %}
+    </div>
+  {% else %}
+    <div class="alert alert-info">
+      <p>You don't have any appointments yet.</p>
+      <a href="{% url 'home' %}" class="btn btn-primary">Book an Appointment</a>
+    </div>
+  {% endif %}
+</div>
 {% endblock %}
