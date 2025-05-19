@@ -1,0 +1,15 @@
+{% extends 'base.html' %}
+{% block content %}
+<h1>Clinics</h1>
+<ul>
+  {% for clinic in clinics %}
+    <li><a href="{% url 'clinic_detail' clinic.id %}">{{ clinic.name }}</a></li>
+  {% endfor %}
+</ul>
+<h2>Services</h2>
+<ul>
+  {% for service in services %}
+    <li>{{ service.name }} - {{ service.duration_minutes }} mins</li>
+  {% endfor %}
+</ul>
+{% endblock %}

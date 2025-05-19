@@ -1,0 +1,35 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-8">
+    <h2>Profile</h2>
+    <form method="post" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div class="card mb-4">
+        <div class="card-header">
+          <h5 class="mb-0">User Information</h5>
+        </div>
+        <div class="card-body">
+          {{ user_form.as_p }}
+        </div>
+      </div>
+      
+      {% if profile_form %}
+      <div class="card mb-4">
+        <div class="card-header">
+          <h5 class="mb-0">Patient Profile</h5>
+        </div>
+        <div class="card-body">
+          {{ profile_form.as_p }}
+        </div>
+      </div>
+      {% endif %}
+      
+      <div class="d-flex justify-content-between">
+        <button type="submit" class="btn btn-primary">Update Profile</button>
+        <a href="{% url 'change_password' %}" class="btn btn-secondary">Change Password</a>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

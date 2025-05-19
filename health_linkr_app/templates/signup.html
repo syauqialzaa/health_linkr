@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="row justify-content-center">
+  <div class="col-md-8">
+    <h2>Sign Up</h2>
+    <form method="post" class="mt-4">
+      {% csrf_token %}
+      <div class="card mb-4">
+        <div class="card-header">
+          <h5 class="mb-0">Account Information</h5>
+        </div>
+        <div class="card-body">
+          {{ user_form.as_p }}
+        </div>
+      </div>
+      
+      <div class="card mb-4">
+        <div class="card-header">
+          <h5 class="mb-0">Patient Information</h5>
+        </div>
+        <div class="card-body">
+          {{ profile_form.as_p }}
+        </div>
+      </div>
+      
+      <button type="submit" class="btn btn-success">Sign Up</button>
+    </form>
+    <p class="mt-2">Already have an account? <a href="{% url 'login' %}">Login</a></p>
+  </div>
+</div>
+{% endblock %}
