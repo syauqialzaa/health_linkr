@@ -21,6 +21,29 @@
 
       <form method="post" class="mt-4">
         {% csrf_token %}
+        
+        <div class="card mb-4">
+          <div class="card-header">
+            <h5 class="mb-0">Select Service</h5>
+          </div>
+          <div class="card-body">
+            <div class="form-group">
+              <select name="service" id="service" class="form-select mb-3" required>
+                <option value="">Select a service</option>
+                {% for service in services %}
+                  <option value="{{ service.id }}" data-duration="{{ service.duration_minutes }}" data-fee="{{ service.fee }}">
+                    {{ service.name }} ({{ service.duration_minutes }} mins) - ${{ service.fee }}
+                  </option>
+                {% endfor %}
+              </select>
+              <div id="service-details" class="alert alert-info d-none">
+                <p class="service-duration mb-1"></p>
+                <p class="service-fee mb-0"></p>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="card mb-4">
           <div class="card-header">
             <h5 class="mb-0">Available Time Slots</h5>
@@ -59,4 +82,26 @@
     </div>
   </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.getElementById('service').addEventListener('change', function() {
+  const selectedOption = this.options[this.selectedIndex];
+  const serviceDetails = document.getElementById('service-details');
+  const durationElement = serviceDetails.querySelector('.service-duration');
+  const feeElement = serviceDetails.querySelector('.service-fee');
+  
+  if (this.value) {
+    const duration = selectedOption.dataset.duration;
+    const fee = selectedOption.dataset.fee;
+    
+    durationElement.textContent = `Duration: ${duration} minutes`;
+    feeElement.textContent = `Fee: $${fee}`;
+    serviceDetails.classList.remove('d-none');
+  } else {
+    serviceDetails.classList.add('d-none');
+  }
+});
+</script>
 {% endblock %}

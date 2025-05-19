@@ -3,7 +3,17 @@ from django.contrib.auth.models import AbstractUser, Group, Permission
 from django.utils import timezone
 
 class Role(models.Model):
-    name = models.CharField(max_length=50, unique=True)
+    ADMIN = 'ADMIN'
+    DOCTOR = 'DOCTOR'
+    PATIENT = 'PATIENT'
+    
+    ROLE_CHOICES = [
+        (ADMIN, 'Administrator'),
+        (DOCTOR, 'Doctor'),
+        (PATIENT, 'Patient'),
+    ]
+    
+    name = models.CharField(max_length=50, unique=True, choices=ROLE_CHOICES)
     permissions = models.JSONField(
         default=dict,
         help_text="Dictionary of custom permissions, e.g. {'can_edit_appointment': True}"
@@ -32,6 +42,19 @@ class User(AbstractUser):
         help_text='Specific permissions for this user.',
         verbose_name='user permissions',
     )
+    
+    def save(self, *args, **kwargs):
+        is_new = self.pk is None
+        super().save(*args, **kwargs)
+        
+        if is_new and self.is_superuser:
+            admin_role, _ = Role.objects.get_or_create(
+                name=Role.ADMIN,
+                defaults={'permissions': {'can_manage_all': True}}
+            )
+            self.roles.add(admin_role)
+            self.is_staff = True
+            self.save(update_fields=['is_staff'])
 
     REQUIRED_FIELDS = ['email']
 
@@ -86,7 +109,7 @@ class Service(models.Model):
     doctors = models.ManyToManyField(DoctorProfile, related_name='services')
 
     def __str__(self):
-        return f"{self.name} ({self.duration_minutes} mins)"
+        return f"{self.name} at {self.clinic.name} ({self.duration_minutes} mins, ${self.fee})"
 
 class ScheduleSlot(models.Model):
     doctor = models.ForeignKey(DoctorProfile, on_delete=models.CASCADE, related_name='schedule_slots')
@@ -128,7 +151,7 @@ class Appointment(models.Model):
     updated_at = models.DateTimeField(auto_now=True)
 
     def __str__(self):
-        return f"{self.patient} with {self.doctor} on {self.datetime}"
+        return f"[{self.status}] {self.patient.full_name} with {self.doctor} on {self.datetime.strftime('%B %d, %Y at %I:%M %p')}"
 
 class Notification(models.Model):
     NOTIFICATION_TYPES = [

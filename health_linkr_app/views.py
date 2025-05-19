@@ -7,6 +7,7 @@ from django.urls import reverse_lazy
 from django.views.generic.edit import UpdateView
 from django.utils import timezone
 from django.db import transaction
+from .permissions import admin_required, patient_required, is_admin
 from .models import (
     Clinic, Service, ScheduleSlot, Appointment, DoctorProfile, 
     PatientProfile, User, SessionLog, Notification
@@ -27,8 +28,55 @@ def clinic_detail(request, clinic_id):
   return render(request, 'clinic_detail.html', {'clinic': clinic, 'doctors': doctors})
 
 @login_required
+@patient_required
+def appointments(request):
+    # Get user's patient profile or create one if it doesn't exist
+    try:
+        patient = request.user.patient_profile
+    except PatientProfile.DoesNotExist:
+        if request.user.is_superuser or request.user.is_staff:
+            # Create a patient profile for admin users
+            patient = PatientProfile.objects.create(
+                user=request.user,
+                full_name=f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username,
+                birth_date=timezone.now().date(),  # Default date, can be updated later
+                gender='M',  # Default gender, can be updated later
+                phone=request.user.phone or ''
+            )
+        else:
+            messages.error(request, 'Please complete your patient profile first.')
+            return redirect('profile')
+
+    # Get all appointments for the patient
+    appointments = Appointment.objects.filter(patient=patient).order_by('-datetime')
+    
+    # Get available clinics and their services
+    clinics = Clinic.objects.filter(is_active=True).prefetch_related(
+        'doctors',
+        'services'
+    )
+
+    return render(request, 'appointments.html', {
+        'appointments': appointments,
+        'clinics': clinics,
+        'now': timezone.now(),
+        'pending_appointments': appointments.filter(status='PENDING'),
+        'confirmed_appointments': appointments.filter(status='CONFIRMED'),
+        'completed_appointments': appointments.filter(status='COMPLETED'),
+        'cancelled_appointments': appointments.filter(status='CANCELLED')
+    })
+
+@login_required
+@patient_required
 def book_appointment(request, doctor_id):
     doctor = get_object_or_404(DoctorProfile, id=doctor_id)
+    
+    # Ensure user has a patient profile
+    try:
+        patient = request.user.patient_profile
+    except PatientProfile.DoesNotExist:
+        messages.error(request, 'Please complete your patient profile before booking appointments.')
+        return redirect('profile')
     
     # Get only future slots that are available
     current_time = timezone.now()
@@ -38,13 +86,31 @@ def book_appointment(request, doctor_id):
         start_time__gt=current_time
     ).order_by('start_time')
     
+    # Get available services for this doctor
+    services = doctor.services.filter(is_active=True)
+    
     if request.method == 'POST':
         form = AppointmentForm(request.POST)
         slot_id = request.POST.get('slot')
+        service_id = request.POST.get('service')
         
         if not slot_id:
             messages.error(request, 'Please select a time slot.')
-            return render(request, 'book_appointment.html', {'form': form, 'doctor': doctor, 'slots': slots})
+            return render(request, 'book_appointment.html', {
+                'form': form,
+                'doctor': doctor,
+                'slots': slots,
+                'services': services
+            })
+            
+        if not service_id:
+            messages.error(request, 'Please select a service.')
+            return render(request, 'book_appointment.html', {
+                'form': form,
+                'doctor': doctor,
+                'slots': slots,
+                'services': services
+            })
             
         try:
             slot = ScheduleSlot.objects.get(
@@ -54,39 +120,47 @@ def book_appointment(request, doctor_id):
                 is_available=True,
                 start_time__gt=current_time
             )
+            
+            service = Service.objects.get(
+                id=service_id,
+                doctors=doctor,
+                is_active=True
+            )
         except ScheduleSlot.DoesNotExist:
             messages.error(request, 'The selected time slot is no longer available.')
             return redirect('book_appointment', doctor_id=doctor_id)
+        except Service.DoesNotExist:
+            messages.error(request, 'The selected service is not available.')
+            return redirect('book_appointment', doctor_id=doctor_id)
             
         if form.is_valid():
-            # Create the appointment in a transaction
             try:
                 with transaction.atomic():
                     appt = form.save(commit=False)
-                    appt.patient = request.user.patient_profile
+                    appt.patient = patient
                     appt.doctor = doctor
                     appt.slot = slot
                     appt.datetime = slot.start_time
-                    appt.service = doctor.services.first()  # Get default service if available
+                    appt.service = service
                     appt.save()
                     
-                    # Mark the slot as booked
                     slot.is_booked = True
                     slot.save()
                     
-                    # Create a notification for both patient and doctor
+                    # Notify patient
                     Notification.objects.create(
                         user=request.user,
                         type='IN_APP',
                         title='Appointment Booked',
-                        message=f'Your appointment with Dr. {doctor.user.get_full_name()} is scheduled for {slot.start_time.strftime("%B %d, %Y at %I:%M %p")}'
+                        message=f'Your appointment for {service.name} with Dr. {doctor.user.get_full_name()} is scheduled for {slot.start_time.strftime("%B %d, %Y at %I:%M %p")}'
                     )
                     
+                    # Notify doctor
                     Notification.objects.create(
                         user=doctor.user,
                         type='IN_APP',
                         title='New Appointment',
-                        message=f'New appointment with {request.user.patient_profile.full_name} scheduled for {slot.start_time.strftime("%B %d, %Y at %I:%M %p")}'
+                        message=f'New appointment for {service.name} with {patient.full_name} scheduled for {slot.start_time.strftime("%B %d, %Y at %I:%M %p")}'
                     )
                     
                     messages.success(request, 'Your appointment has been booked successfully.')
@@ -101,90 +175,12 @@ def book_appointment(request, doctor_id):
     return render(request, 'book_appointment.html', {
         'form': form,
         'doctor': doctor,
-        'slots': slots
+        'slots': slots,
+        'services': services
     })
 
 @login_required
-def appointments(request):
-  patient = request.user.patient_profile
-  appts = Appointment.objects.filter(patient=patient)
-  return render(request, 'appointments.html', {'appointments': appts})
-
-def signup(request):
-    if request.method == 'POST':
-        user_form = CustomUserCreationForm(request.POST)
-        profile_form = PatientProfileForm(request.POST)
-        
-        if user_form.is_valid() and profile_form.is_valid():
-            user = user_form.save()
-            profile = profile_form.save(commit=False)
-            profile.user = user
-            profile.save()
-            
-            # Log the session
-            SessionLog.objects.create(
-                user=user,
-                ip_address=request.META.get('REMOTE_ADDR'),
-                user_agent=request.META.get('HTTP_USER_AGENT'),
-                session_id=request.session.session_key or ''
-            )
-            
-            username = user_form.cleaned_data.get('username')
-            raw_password = user_form.cleaned_data.get('password1')
-            user = authenticate(username=username, password=raw_password)
-            login(request, user)
-            messages.success(request, 'Account created successfully!')
-            return redirect('home')
-    else:
-        user_form = CustomUserCreationForm()
-        profile_form = PatientProfileForm()
-    
-    return render(request, 'signup.html', {
-        'user_form': user_form,
-        'profile_form': profile_form
-    })
-
-@login_required
-def profile(request):
-    if request.method == 'POST':
-        user_form = UserProfileUpdateForm(request.POST, request.FILES, instance=request.user)
-        if hasattr(request.user, 'patient_profile'):
-            profile_form = PatientProfileForm(request.POST, instance=request.user.patient_profile)
-        else:
-            profile_form = None
-        
-        if user_form.is_valid() and (not profile_form or profile_form.is_valid()):
-            user_form.save()
-            if profile_form:
-                profile_form.save()
-            messages.success(request, 'Profile updated successfully!')
-            return redirect('profile')
-    else:
-        user_form = UserProfileUpdateForm(instance=request.user)
-        if hasattr(request.user, 'patient_profile'):
-            profile_form = PatientProfileForm(instance=request.user.patient_profile)
-        else:
-            profile_form = None
-    
-    return render(request, 'profile.html', {
-        'user_form': user_form,
-        'profile_form': profile_form
-    })
-
-@login_required
-def change_password(request):
-    if request.method == 'POST':
-        form = PasswordChangeCustomForm(request.user, request.POST)
-        if form.is_valid():
-            user = form.save()
-            update_session_auth_hash(request, user)
-            messages.success(request, 'Your password was successfully updated!')
-            return redirect('profile')
-    else:
-        form = PasswordChangeCustomForm(request.user)
-    return render(request, 'change_password.html', {'form': form})
-
-@login_required
+@patient_required
 def cancel_appointment(request, appointment_id):
     appointment = get_object_or_404(
         Appointment, 
@@ -223,6 +219,7 @@ def cancel_appointment(request, appointment_id):
     return redirect('appointments')
 
 @login_required
+@patient_required
 def reschedule_appointment(request, appointment_id):
     appointment = get_object_or_404(
         Appointment, 
@@ -292,3 +289,91 @@ def reschedule_appointment(request, appointment_id):
         'appointment': appointment,
         'available_slots': available_slots
     })
+
+def signup(request):
+    # Redirect authenticated users
+    if request.user.is_authenticated:
+        if is_admin(request.user):
+            return redirect('admin:index')
+        return redirect('home')
+        
+    if request.method == 'POST':
+        user_form = CustomUserCreationForm(request.POST)
+        profile_form = PatientProfileForm(request.POST)
+        
+        if user_form.is_valid() and profile_form.is_valid():
+            user = user_form.save()
+            profile = profile_form.save(commit=False)
+            profile.user = user
+            profile.save()
+            
+            # Log the session
+            SessionLog.objects.create(
+                user=user,
+                ip_address=request.META.get('REMOTE_ADDR'),
+                user_agent=request.META.get('HTTP_USER_AGENT'),
+                session_id=request.session.session_key or ''
+            )
+            
+            username = user_form.cleaned_data.get('username')
+            raw_password = user_form.cleaned_data.get('password1')
+            user = authenticate(username=username, password=raw_password)
+            login(request, user)
+            messages.success(request, 'Account created successfully!')
+            return redirect('home')
+    else:
+        user_form = CustomUserCreationForm()
+        profile_form = PatientProfileForm()
+    
+    return render(request, 'signup.html', {
+        'user_form': user_form,
+        'profile_form': profile_form
+    })
+
+@login_required
+def profile(request):
+    # Redirect admin users to admin interface
+    if is_admin(request.user):
+        return redirect('admin:index')
+        
+    if request.method == 'POST':
+        user_form = UserProfileUpdateForm(request.POST, request.FILES, instance=request.user)
+        if hasattr(request.user, 'patient_profile'):
+            profile_form = PatientProfileForm(request.POST, instance=request.user.patient_profile)
+        else:
+            profile_form = None
+        
+        if user_form.is_valid() and (not profile_form or profile_form.is_valid()):
+            user_form.save()
+            if profile_form:
+                profile_form.save()
+            messages.success(request, 'Profile updated successfully!')
+            return redirect('profile')
+    else:
+        user_form = UserProfileUpdateForm(instance=request.user)
+        if hasattr(request.user, 'patient_profile'):
+            profile_form = PatientProfileForm(instance=request.user.patient_profile)
+        else:
+            profile_form = None
+    
+    return render(request, 'profile.html', {
+        'user_form': user_form,
+        'profile_form': profile_form
+    })
+
+@login_required
+def change_password(request):
+    # Redirect admin users to admin interface for password changes
+    if is_admin(request.user):
+        return redirect('admin:password_change')
+        
+    if request.method == 'POST':
+        form = PasswordChangeCustomForm(request.user, request.POST)
+        if form.is_valid():
+            user = form.save()
+            update_session_auth_hash(request, user)
+            messages.success(request, 'Your password was successfully updated!')
+            return redirect('profile')
+    else:
+        form = PasswordChangeCustomForm(request.user)
+    return render(request, 'change_password.html', {'form': form})
