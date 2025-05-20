@@ -60,6 +60,11 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
 ]
 
+# Session settings
+SESSION_COOKIE_AGE = 30 * 60  # 30 minutes in seconds
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+SESSION_SAVE_EVERY_REQUEST = True
+
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -69,6 +74,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'health_linkr_app.middleware.AuthRequiredMiddleware',
+    'health_linkr_app.middleware.SessionExpiryMiddleware',
 ]
 
 ROOT_URLCONF = 'health_linkr.urls'

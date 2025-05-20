@@ -13,10 +13,10 @@
 | **ScheduleSlot** | Available time slot of doctor's practice. | doctor (FK), start_time, end_time, is_booked |
 | **Role** | Access control—patient, doctor, staff/admin. | name, permissions |
 | **Notification** | Notification (email/SMS/app) about appointment status. | user (FK), message, sent_at, read_flag |
-| **SessionLog** | (Optional) Log of login sessions for security audits. | user (FK), login_time, logout_time, ip_address |
-| **AuditTrail** | (Optional) Tracking of important data changes (e.g. cancel appt). | user (FK), action, model_name, timestamp |
+| **SessionLog** | Log of login sessions for security audits. | user (FK), login_time, logout_time, ip_address |
+| **AuditTrail** | Tracking of important data changes (e.g. cancel appt). | user (FK), action, model_name, timestamp |
 
-## feature
+## features
 | Features | Models / Entities Involved | Short Description |
 | ------------------------------------------ | ----------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | 1. Authentication & Authentication | User, Role, SessionLog | • Registration, login/logout, reset password<br>• Role-based access (patient, doctor, staff/admin)<br>• Session logging for audit and security |

@@ -1,8 +1,6 @@
 from django.http import HttpResponseRedirect
 from django.urls import reverse, resolve
-from django.conf import settings
-from django.contrib.auth import logout
-from .permissions import is_admin, is_patient
+from health_linkr_app.permissions import is_admin
 
 class AuthRequiredMiddleware:
     def __init__(self, get_response):

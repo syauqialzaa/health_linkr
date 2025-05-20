@@ -307,16 +307,9 @@ def signup(request):
             profile.user = user
             profile.save()
             
-            # Log the session
-            SessionLog.objects.create(
-                user=user,
-                ip_address=request.META.get('REMOTE_ADDR'),
-                user_agent=request.META.get('HTTP_USER_AGENT'),
-                session_id=request.session.session_key or ''
-            )
-            
             username = user_form.cleaned_data.get('username')
             raw_password = user_form.cleaned_data.get('password1')
+            # Login the user - this will trigger the user_logged_in signal
             user = authenticate(username=username, password=raw_password)
             login(request, user)
             messages.success(request, 'Account created successfully!')

@@ -42,7 +42,7 @@ class User(AbstractUser):
         help_text='Specific permissions for this user.',
         verbose_name='user permissions',
     )
-    
+
     def save(self, *args, **kwargs):
         is_new = self.pk is None
         super().save(*args, **kwargs)
@@ -175,13 +175,26 @@ class SessionLog(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='session_logs')
     login_time = models.DateTimeField(auto_now_add=True)
     logout_time = models.DateTimeField(null=True, blank=True)
-    ip_address = models.GenericIPAddressField()
-    user_agent = models.TextField()
-    session_id = models.CharField(max_length=100)
+    ip_address = models.GenericIPAddressField(null=True, blank=True)  # Made nullable for flexibility
+    user_agent = models.TextField(blank=True)
+    session_id = models.CharField(max_length=100, blank=True)
     is_expired = models.BooleanField(default=False)
 
+    class Meta:
+        ordering = ['-login_time']
+        indexes = [
+            models.Index(fields=['user', 'session_id', 'is_expired']),
+            models.Index(fields=['login_time', 'logout_time']),
+        ]
+
     def __str__(self):
-        return f"Session for {self.user.username} at {self.login_time}"
+        status = 'Active' if not self.is_expired and not self.logout_time else 'Expired/Logged out'
+        return f"Session for {self.user.username} - {status} - Started at {self.login_time}"
+
+    def save(self, *args, **kwargs):
+        if self.logout_time and not self.is_expired:
+            self.is_expired = True
+        super().save(*args, **kwargs)
 
 class AuditTrail(models.Model):
     user = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
