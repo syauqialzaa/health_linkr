@@ -1,11 +1,121 @@
 {% extends 'base.html' %}
 {% block content %}
-<h1>{{ clinic.name }}</h1>
-<p>{{ clinic.address }}</p>
-<h2>Doctors</h2>
-<ul>
-  {% for doctor in doctors %}
-    <li><a href="{% url 'book_appointment' doctor.id %}">Dr. {{ doctor.user.get_full_name }} ({{ doctor.specialty }})</a></li>
-  {% endfor %}
-</ul>
+<div class="container">
+    <div class="row">
+        <div class="col-md-8">
+            <h1 class="mb-4">{{ clinic.name }}</h1>
+            
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">About Us</h5>
+                </div>
+                <div class="card-body">
+                    {% if clinic.description %}
+                        <p>{{ clinic.description }}</p>
+                    {% endif %}
+                    <h6>Contact Information:</h6>
+                    <ul class="list-unstyled">
+                        <li><strong>Address:</strong> {{ clinic.address }}</li>
+                        <li><strong>Phone:</strong> {{ clinic.contact_number }}</li>
+                        {% if clinic.emergency_number %}
+                            <li><strong>Emergency:</strong> {{ clinic.emergency_number }}</li>
+                        {% endif %}
+                        {% if clinic.email %}
+                            <li><strong>Email:</strong> {{ clinic.email }}</li>
+                        {% endif %}
+                        {% if clinic.website %}
+                            <li><strong>Website:</strong> <a href="{{ clinic.website }}" target="_blank">{{ clinic.website }}</a></li>
+                        {% endif %}
+                    </ul>
+                </div>
+            </div>
+
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Opening Hours</h5>
+                </div>
+                <div class="card-body">
+                    <ul class="list-unstyled">
+                        {% with hours=clinic.get_formatted_hours %}
+                            {% for day, time in hours.items %}
+                                <li><strong>{{ day|title }}:</strong> {{ time }}</li>
+                            {% endfor %}
+                        {% endwith %}
+                    </ul>
+                </div>
+            </div>
+
+            {% if clinic.facilities %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Facilities & Equipment</h5>
+                </div>
+                <div class="card-body">
+                    <ul>
+                        {% for facility in clinic.facilities %}
+                            <li>{{ facility }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+
+            {% if clinic.insurance_accepted %}
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Insurance Accepted</h5>
+                </div>
+                <div class="card-body">
+                    <ul>
+                        {% for insurance in clinic.insurance_accepted %}
+                            <li>{{ insurance }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="col-md-4">
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Our Doctors</h5>
+                </div>
+                <div class="card-body">
+                    {% for doctor in doctors %}
+                        <div class="doctor-card mb-3">
+                            <h6>Dr. {{ doctor.user.get_full_name }}</h6>
+                            <p class="mb-1"><strong>Specialty:</strong> {{ doctor.specialty }}</p>
+                            <p class="mb-1"><strong>Experience:</strong> {{ doctor.years_of_experience }} years</p>
+                            {% if doctor.qualification %}
+                                <p class="mb-1"><small>{{ doctor.qualification }}</small></p>
+                            {% endif %}
+                            <a href="{% url 'book_appointment' doctor.id %}" class="btn btn-primary btn-sm">Book Appointment</a>
+                        </div>
+                        {% if not forloop.last %}<hr>{% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">Available Services</h5>
+                </div>
+                <div class="card-body">
+                    {% for service in clinic.get_available_services %}
+                        <div class="service-card mb-3">
+                            <h6>{{ service.name }}</h6>
+                            <p class="mb-1"><strong>Duration:</strong> {{ service.duration_minutes }} minutes</p>
+                            <p class="mb-1"><strong>Fee:</strong> ${{ service.fee }}</p>
+                            {% if service.description %}
+                                <p class="mb-0"><small>{{ service.description }}</small></p>
+                            {% endif %}
+                        </div>
+                        {% if not forloop.last %}<hr>{% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 {% endblock %}

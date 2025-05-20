@@ -47,14 +47,19 @@ class User(AbstractUser):
         is_new = self.pk is None
         super().save(*args, **kwargs)
         
-        if is_new and self.is_superuser:
-            admin_role, _ = Role.objects.get_or_create(
-                name=Role.ADMIN,
-                defaults={'permissions': {'can_manage_all': True}}
-            )
-            self.roles.add(admin_role)
-            self.is_staff = True
-            self.save(update_fields=['is_staff'])
+        if is_new:
+            if self.is_superuser:
+                admin_role, _ = Role.objects.get_or_create(
+                    name=Role.ADMIN,
+                    defaults={'permissions': {'can_manage_all': True}}
+                )
+                self.roles.add(admin_role)
+                self.is_staff = True
+                self.save(update_fields=['is_staff'])
+            elif hasattr(self, 'doctor_profile'):
+                # Make doctors staff members with limited permissions
+                self.is_staff = True
+                self.save(update_fields=['is_staff'])
 
     REQUIRED_FIELDS = ['email']
 
@@ -80,11 +85,48 @@ class Clinic(models.Model):
     contact_number = models.CharField(max_length=20)
     email = models.EmailField(blank=True)
     description = models.TextField(blank=True)
-    opening_hours = models.JSONField(default=dict)
+    website = models.URLField(blank=True)
+    opening_hours = models.JSONField(
+        default=dict,
+        help_text='Format: {"monday": {"open": "09:00", "close": "17:00"}, ...}'
+    )
+    facilities = models.JSONField(
+        default=list,
+        help_text='List of available facilities and equipment'
+    )
+    insurance_accepted = models.JSONField(
+        default=list,
+        help_text='List of accepted insurance providers'
+    )
+    specialties = models.JSONField(
+        default=list,
+        help_text='Medical specialties available at this clinic'
+    )
+    emergency_number = models.CharField(max_length=20, blank=True)
     is_active = models.BooleanField(default=True)
-
+    
     def __str__(self):
         return self.name
+
+    def get_available_doctors(self):
+        """Get all active doctors in this clinic"""
+        return self.doctors.filter(is_active=True)
+
+    def get_available_services(self):
+        """Get all active services in this clinic"""
+        return self.services.filter(is_active=True)
+
+    def get_formatted_hours(self):
+        """Return opening hours in a formatted way"""
+        days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+        formatted = {}
+        for day in days:
+            hours = self.opening_hours.get(day, {})
+            if hours:
+                formatted[day] = f"{hours.get('open', 'Closed')} - {hours.get('close', 'Closed')}"
+            else:
+                formatted[day] = "Closed"
+        return formatted
 
 class DoctorProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='doctor_profile')
@@ -132,26 +174,45 @@ class ScheduleSlot(models.Model):
         return f"Dr. {self.doctor.user.get_full_name()} - {self.start_time}"
 
 class Appointment(models.Model):
+    PENDING = 'PENDING'
+    CONFIRMED = 'CONFIRMED'
+    COMPLETED = 'COMPLETED'
+    CANCELLED = 'CANCELLED'
+    
     STATUS_CHOICES = [
-        ('PENDING', 'Pending'),
-        ('CONFIRMED', 'Confirmed'),
-        ('CANCELLED', 'Cancelled'),
-        ('COMPLETED', 'Completed'),
+        (PENDING, 'Pending'),
+        (CONFIRMED, 'Confirmed'),
+        (COMPLETED, 'Completed'),
+        (CANCELLED, 'Cancelled'),
     ]
-
+    
     patient = models.ForeignKey(PatientProfile, on_delete=models.CASCADE, related_name='appointments')
     doctor = models.ForeignKey(DoctorProfile, on_delete=models.CASCADE, related_name='appointments')
     service = models.ForeignKey(Service, on_delete=models.SET_NULL, null=True, related_name='appointments')
-    slot = models.ForeignKey(ScheduleSlot, on_delete=models.SET_NULL, null=True, related_name='appointment')
     datetime = models.DateTimeField()
-    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='PENDING')
+    slot = models.ForeignKey(ScheduleSlot, on_delete=models.SET_NULL, null=True, related_name='appointment')
     notes = models.TextField(blank=True)
-    cancellation_reason = models.TextField(blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default=PENDING)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
+    class Meta:
+        ordering = ['-datetime']
+        indexes = [
+            models.Index(fields=['status', 'datetime']),
+            models.Index(fields=['patient', 'status']),
+            models.Index(fields=['doctor', 'status']),
+        ]
+
     def __str__(self):
         return f"[{self.status}] {self.patient.full_name} with {self.doctor} on {self.datetime.strftime('%B %d, %Y at %I:%M %p')}"
+
+    def save(self, *args, **kwargs):
+        if self.status == self.CANCELLED and self.slot:
+            # Free up the slot if appointment is cancelled
+            self.slot.is_booked = False
+            self.slot.save()
+        super().save(*args, **kwargs)
 
 class Notification(models.Model):
     NOTIFICATION_TYPES = [

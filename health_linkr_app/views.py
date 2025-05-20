@@ -7,7 +7,8 @@ from django.urls import reverse_lazy
 from django.views.generic.edit import UpdateView
 from django.utils import timezone
 from django.db import transaction
-from .permissions import admin_required, patient_required, is_admin
+from django.db.models import Q
+from .permissions import admin_required, patient_required, doctor_required, is_admin, is_doctor
 from .models import (
     Clinic, Service, ScheduleSlot, Appointment, DoctorProfile, 
     PatientProfile, User, SessionLog, Notification
@@ -30,41 +31,28 @@ def clinic_detail(request, clinic_id):
 @login_required
 @patient_required
 def appointments(request):
-    # Get user's patient profile or create one if it doesn't exist
+    """View for patients to see their appointments"""
     try:
         patient = request.user.patient_profile
+        appointments = Appointment.objects.filter(
+            patient=patient
+        ).select_related('doctor', 'service', 'slot').order_by('datetime')
+        
+        status_filter = request.GET.get('status')
+        if status_filter and status_filter != 'all':
+            appointments = appointments.filter(status=status_filter.upper())
+        
+        context = {
+            'appointments': appointments,
+            'now': timezone.now(),
+            'status_choices': Appointment.STATUS_CHOICES,
+            'current_status': status_filter or 'all'
+        }
+        return render(request, 'appointments.html', context)
+        
     except PatientProfile.DoesNotExist:
-        if request.user.is_superuser or request.user.is_staff:
-            # Create a patient profile for admin users
-            patient = PatientProfile.objects.create(
-                user=request.user,
-                full_name=f"{request.user.first_name} {request.user.last_name}".strip() or request.user.username,
-                birth_date=timezone.now().date(),  # Default date, can be updated later
-                gender='M',  # Default gender, can be updated later
-                phone=request.user.phone or ''
-            )
-        else:
-            messages.error(request, 'Please complete your patient profile first.')
-            return redirect('profile')
-
-    # Get all appointments for the patient
-    appointments = Appointment.objects.filter(patient=patient).order_by('-datetime')
-    
-    # Get available clinics and their services
-    clinics = Clinic.objects.filter(is_active=True).prefetch_related(
-        'doctors',
-        'services'
-    )
-
-    return render(request, 'appointments.html', {
-        'appointments': appointments,
-        'clinics': clinics,
-        'now': timezone.now(),
-        'pending_appointments': appointments.filter(status='PENDING'),
-        'confirmed_appointments': appointments.filter(status='CONFIRMED'),
-        'completed_appointments': appointments.filter(status='COMPLETED'),
-        'cancelled_appointments': appointments.filter(status='CANCELLED')
-    })
+        messages.error(request, 'Please complete your patient profile first.')
+        return redirect('profile')
 
 @login_required
 @patient_required
@@ -370,3 +358,4 @@ def change_password(request):
     else:
         form = PasswordChangeCustomForm(request.user)
     return render(request, 'change_password.html', {'form': form})
+

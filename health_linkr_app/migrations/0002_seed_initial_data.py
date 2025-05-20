@@ -14,15 +14,19 @@ def create_initial_data(apps, schema_editor):
     
     # Create roles
     admin_role = Role.objects.create(
-        name='Admin',
+        name='ADMIN',
         permissions={'can_manage_all': True}
     )
     doctor_role = Role.objects.create(
-        name='Doctor',
-        permissions={'can_manage_appointments': True}
+        name='DOCTOR',
+        permissions={
+            'can_view_appointments': True,
+            'can_change_appointment_status': True,
+            'can_add_appointment_notes': True
+        }
     )
     patient_role = Role.objects.create(
-        name='Patient',
+        name='PATIENT',
         permissions={'can_book_appointments': True}
     )
 
@@ -34,13 +38,13 @@ def create_initial_data(apps, schema_editor):
         email='info@healthcarecenter.com',
         description='A modern healthcare facility providing comprehensive medical services.',
         opening_hours={
-            'Monday': '8:00-17:00',
-            'Tuesday': '8:00-17:00',
-            'Wednesday': '8:00-17:00',
-            'Thursday': '8:00-17:00',
-            'Friday': '8:00-16:00',
-            'Saturday': '9:00-13:00',
-            'Sunday': 'Closed'
+            'monday': {'open': '08:00', 'close': '17:00'},
+            'tuesday': {'open': '08:00', 'close': '17:00'},
+            'wednesday': {'open': '08:00', 'close': '17:00'},
+            'thursday': {'open': '08:00', 'close': '17:00'},
+            'friday': {'open': '08:00', 'close': '16:00'},
+            'saturday': {'open': '09:00', 'close': '13:00'},
+            'sunday': {'open': '', 'close': ''}
         },
         is_active=True
     )

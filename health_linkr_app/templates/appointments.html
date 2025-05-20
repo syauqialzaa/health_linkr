@@ -13,25 +13,19 @@
           <h5 class="mb-0">Filter Appointments</h5>
         </div>
         <div class="card-body">
-          <div class="mb-3">
-            <label class="form-label">Status</label>
-            <div class="btn-group-vertical w-100" role="group">
-              <input type="radio" class="btn-check" name="status-filter" id="all" value="all" checked>
-              <label class="btn btn-outline-primary" for="all">All</label>
-              
-              <input type="radio" class="btn-check" name="status-filter" id="pending" value="pending">
-              <label class="btn btn-outline-warning" for="pending">Pending</label>
-              
-              <input type="radio" class="btn-check" name="status-filter" id="confirmed" value="confirmed">
-              <label class="btn btn-outline-success" for="confirmed">Confirmed</label>
-              
-              <input type="radio" class="btn-check" name="status-filter" id="completed" value="completed">
-              <label class="btn btn-outline-info" for="completed">Completed</label>
-              
-              <input type="radio" class="btn-check" name="status-filter" id="cancelled" value="cancelled">
-              <label class="btn btn-outline-danger" for="cancelled">Cancelled</label>
+          <form method="get" id="statusFilterForm">
+            <div class="mb-3">
+              <label class="form-label">Status</label>
+              <select name="status" class="form-select" onchange="this.form.submit()">
+                <option value="all" {% if current_status == 'all' %}selected{% endif %}>All</option>
+                {% for status_code, status_label in status_choices %}
+                  <option value="{{ status_code|lower }}" {% if current_status == status_code|lower %}selected{% endif %}>
+                    {{ status_label }}
+                  </option>
+                {% endfor %}
+              </select>
             </div>
-          </div>
+          </form>
         </div>
       </div>
     </div>
@@ -42,8 +36,35 @@
           <h3>Upcoming Appointments</h3>
           <div class="row">
             {% for appt in appointments %}
-              {% if appt.datetime > now and appt.status != 'CANCELLED' %}
-                {% include 'appointment_card.html' with appointment=appt %}
+              {% if appt.datetime > now %}
+                <div class="col-md-6 mb-3">
+                  <div class="card">
+                    <div class="card-body">
+                      <h5 class="card-title">{{ appt.service.name }}</h5>
+                      <p class="card-text">
+                        <strong>Doctor:</strong> Dr. {{ appt.doctor.user.get_full_name }}<br>
+                        <strong>Date:</strong> {{ appt.datetime|date:"M d, Y" }}<br>
+                        <strong>Time:</strong> {{ appt.datetime|time:"g:i A" }}<br>
+                        <strong>Status:</strong> <span class="badge bg-{% if appt.status == 'PENDING' %}warning{% elif appt.status == 'CONFIRMED' %}primary{% elif appt.status == 'COMPLETED' %}success{% else %}danger{% endif %}">
+                          {{ appt.status }}
+                        </span>
+                      </p>
+                      {% if appt.notes %}
+                        <p class="card-text"><small>Notes: {{ appt.notes }}</small></p>
+                      {% endif %}
+
+                      {% if appt.status == 'PENDING' or appt.status == 'CONFIRMED' %}
+                        <div class="btn-group">
+                          <a href="{% url 'reschedule_appointment' appt.id %}" class="btn btn-primary btn-sm">Reschedule</a>
+                          <form action="{% url 'cancel_appointment' appt.id %}" method="post" class="d-inline">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-danger btn-sm">Cancel</button>
+                          </form>
+                        </div>
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
               {% endif %}
             {% endfor %}
           </div>
@@ -54,7 +75,24 @@
           <div class="row">
             {% for appt in appointments %}
               {% if appt.datetime <= now or appt.status == 'CANCELLED' %}
-                {% include 'appointment_card.html' with appointment=appt %}
+                <div class="col-md-6 mb-3">
+                  <div class="card">
+                    <div class="card-body">
+                      <h5 class="card-title">{{ appt.service.name }}</h5>
+                      <p class="card-text">
+                        <strong>Doctor:</strong> Dr. {{ appt.doctor.user.get_full_name }}<br>
+                        <strong>Date:</strong> {{ appt.datetime|date:"M d, Y" }}<br>
+                        <strong>Time:</strong> {{ appt.datetime|time:"g:i A" }}<br>
+                        <strong>Status:</strong> <span class="badge bg-{% if appt.status == 'PENDING' %}warning{% elif appt.status == 'CONFIRMED' %}primary{% elif appt.status == 'COMPLETED' %}success{% else %}danger{% endif %}">
+                          {{ appt.status }}
+                        </span>
+                      </p>
+                      {% if appt.notes %}
+                        <p class="card-text"><small>Notes: {{ appt.notes }}</small></p>
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
               {% endif %}
             {% endfor %}
           </div>
@@ -70,28 +108,4 @@
     </div>
   </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-  const filterButtons = document.querySelectorAll('input[name="status-filter"]');
-  const appointments = document.querySelectorAll('.appointment-card');
-
-  filterButtons.forEach(button => {
-    button.addEventListener('change', function() {
-      const filterValue = this.value;
-      
-      appointments.forEach(card => {
-        if (filterValue === 'all') {
-          card.style.display = 'block';
-        } else {
-          const status = card.dataset.status.toLowerCase();
-          card.style.display = status === filterValue ? 'block' : 'none';
-        }
-      });
-    });
-  });
-});
-</script>
 {% endblock %}

@@ -1,0 +1,172 @@
+{% extends 'base.html' %}
+{% block content %}
+<div class="container">
+  <div class="d-flex justify-content-between align-items-center mb-4">
+    <h1>Manage Appointments</h1>
+  </div>
+
+  <div class="row">
+    <div class="col-md-3">
+      <div class="card mb-4">
+        <div class="card-header">
+          <h5 class="mb-0">Filter Appointments</h5>
+        </div>
+        <div class="card-body">
+          <form method="get" id="statusFilterForm">
+            <div class="mb-3">
+              <label class="form-label">Status</label>
+              <select name="status" class="form-select" onchange="this.form.submit()">
+                <option value="all" {% if current_status == 'all' %}selected{% endif %}>All</option>
+                {% for status_code, status_label in status_choices %}
+                  <option value="{{ status_code|lower }}" {% if current_status == status_code|lower %}selected{% endif %}>
+                    {{ status_label }}
+                  </option>
+                {% endfor %}
+              </select>
+            </div>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <div class="col-md-9">
+      <div class="row appointments-container">
+        <div class="upcoming-appointments mb-4">
+          <h3>Today's Appointments</h3>
+          <div class="row">
+            {% for appt in appointments %}
+              {% if appt.datetime|date:"Y-m-d" == now|date:"Y-m-d" %}
+                <div class="col-md-6 mb-3">
+                  <div class="card">
+                    <div class="card-body">
+                      <h5 class="card-title">{{ appt.patient.full_name }}</h5>
+                      <p class="card-text">
+                        <strong>Time:</strong> {{ appt.datetime|time:"g:i A" }}<br>
+                        <strong>Service:</strong> {{ appt.service.name }}<br>
+                        <strong>Status:</strong> <span class="badge bg-{% if appt.status == 'PENDING' %}warning{% elif appt.status == 'CONFIRMED' %}primary{% elif appt.status == 'COMPLETED' %}success{% else %}danger{% endif %}">
+                          {{ appt.status }}
+                        </span>
+                      </p>
+                      {% if appt.notes %}
+                        <p class="card-text"><small>Notes: {{ appt.notes }}</small></p>
+                      {% endif %}
+                      
+                      {% if appt.status == 'PENDING' %}
+                        <form action="{% url 'update_appointment_status' appt.id %}" method="post" class="d-inline">
+                          {% csrf_token %}
+                          <input type="hidden" name="status" value="CONFIRMED">
+                          <button type="submit" class="btn btn-success btn-sm">Confirm</button>
+                        </form>
+                        <form action="{% url 'update_appointment_status' appt.id %}" method="post" class="d-inline">
+                          {% csrf_token %}
+                          <input type="hidden" name="status" value="CANCELLED">
+                          <button type="submit" class="btn btn-danger btn-sm">Cancel</button>
+                        </form>
+                      {% elif appt.status == 'CONFIRMED' %}
+                        <form action="{% url 'update_appointment_status' appt.id %}" method="post">
+                          {% csrf_token %}
+                          <input type="hidden" name="status" value="COMPLETED">
+                          <button type="submit" class="btn btn-success btn-sm">Mark Complete</button>
+                        </form>
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+              {% endif %}
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="future-appointments mb-4">
+          <h3>Upcoming Appointments</h3>
+          <div class="row">
+            {% for appt in appointments %}
+              {% if appt.datetime|date:"Y-m-d" > now|date:"Y-m-d" %}
+                <div class="col-md-6 mb-3">
+                  <div class="card">
+                    <div class="card-body">
+                      <h5 class="card-title">{{ appt.patient.full_name }}</h5>
+                      <p class="card-text">
+                        <strong>Date:</strong> {{ appt.datetime|date:"M d, Y" }}<br>
+                        <strong>Time:</strong> {{ appt.datetime|time:"g:i A" }}<br>
+                        <strong>Service:</strong> {{ appt.service.name }}<br>
+                        <strong>Status:</strong> <span class="badge bg-{% if appt.status == 'PENDING' %}warning{% elif appt.status == 'CONFIRMED' %}primary{% elif appt.status == 'COMPLETED' %}success{% else %}danger{% endif %}">
+                          {{ appt.status }}
+                        </span>
+                      </p>
+                      {% if appt.notes %}
+                        <p class="card-text"><small>Notes: {{ appt.notes }}</small></p>
+                      {% endif %}
+                      
+                      {% if appt.status == 'PENDING' %}
+                        <form action="{% url 'update_appointment_status' appt.id %}" method="post" class="d-inline">
+                          {% csrf_token %}
+                          <input type="hidden" name="status" value="CONFIRMED">
+                          <button type="submit" class="btn btn-success btn-sm">Confirm</button>
+                        </form>
+                        <form action="{% url 'update_appointment_status' appt.id %}" method="post" class="d-inline">
+                          {% csrf_token %}
+                          <input type="hidden" name="status" value="CANCELLED">
+                          <button type="submit" class="btn btn-danger btn-sm">Cancel</button>
+                        </form>
+                      {% elif appt.status == 'CONFIRMED' %}
+                        <form action="{% url 'update_appointment_status' appt.id %}" method="post">
+                          {% csrf_token %}
+                          <input type="hidden" name="status" value="COMPLETED">
+                          <button type="submit" class="btn btn-success btn-sm">Mark Complete</button>
+                        </form>
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+              {% endif %}
+            {% endfor %}
+          </div>
+        </div>
+
+        <div class="past-appointments">
+          <h3>Past Appointments</h3>
+          <div class="row">
+            {% for appt in appointments %}
+              {% if appt.datetime|date:"Y-m-d" < now|date:"Y-m-d" %}
+                <div class="col-md-6 mb-3">
+                  <div class="card">
+                    <div class="card-body">
+                      <h5 class="card-title">{{ appt.patient.full_name }}</h5>
+                      <p class="card-text">
+                        <strong>Date:</strong> {{ appt.datetime|date:"M d, Y" }}<br>
+                        <strong>Time:</strong> {{ appt.datetime|time:"g:i A" }}<br>
+                        <strong>Service:</strong> {{ appt.service.name }}<br>
+                        <strong>Status:</strong> <span class="badge bg-{% if appt.status == 'PENDING' %}warning{% elif appt.status == 'CONFIRMED' %}primary{% elif appt.status == 'COMPLETED' %}success{% else %}danger{% endif %}">
+                          {{ appt.status }}
+                        </span>
+                      </p>
+                      {% if appt.notes %}
+                        <p class="card-text"><small>Notes: {{ appt.notes }}</small></p>
+                      {% endif %}
+                      
+                      {% if appt.status == 'CONFIRMED' %}
+                        <form action="{% url 'update_appointment_status' appt.id %}" method="post">
+                          {% csrf_token %}
+                          <input type="hidden" name="status" value="COMPLETED">
+                          <button type="submit" class="btn btn-success btn-sm">Mark Complete</button>
+                        </form>
+                      {% endif %}
+                    </div>
+                  </div>
+                </div>
+              {% endif %}
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+
+      {% if not appointments %}
+        <div class="alert alert-info">
+          <p>You don't have any appointments to manage.</p>
+        </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

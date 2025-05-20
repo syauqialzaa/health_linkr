@@ -1,0 +1,68 @@
+/* Custom admin styles */
+.field-colored_status span {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-weight: 600;
+}
+
+.field-colored_status span[style*="orange"] {
+    background-color: #fff3e0;
+    border: 1px solid #ffb74d;
+}
+
+.field-colored_status span[style*="blue"] {
+    background-color: #e3f2fd;
+    border: 1px solid #64b5f6;
+}
+
+.field-colored_status span[style*="green"] {
+    background-color: #e8f5e9;
+    border: 1px solid #81c784;
+}
+
+.field-colored_status span[style*="red"] {
+    background-color: #ffebee;
+    border: 1px solid #e57373;
+}
+
+/* Better responsive layout */
+@media (max-width: 1024px) {
+    .field-colored_status span {
+        display: inline-block;
+        margin: 2px 0;
+    }
+}
+
+/* Enhanced action buttons */
+.actions select {
+    padding: 8px;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+}
+
+.button, input[type=submit], input[type=button], .submit-row input {
+    padding: 8px 16px;
+    border-radius: 4px;
+}
+
+/* Better form layout */
+.form-row {
+    padding: 12px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.form-row:last-child {
+    border-bottom: none;
+}
+
+/* More compact list view for mobile */
+@media (max-width: 767px) {
+    #changelist-form .results {
+        overflow-x: auto;
+    }
+    
+    #result_list th,
+    #result_list td {
+        padding: 8px;
+    }
+}
