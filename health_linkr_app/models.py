@@ -119,13 +119,17 @@ class Clinic(models.Model):
     def get_formatted_hours(self):
         """Return opening hours in a formatted way"""
         days = ['monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday', 'sunday']
+
         formatted = {}
         for day in days:
-            hours = self.opening_hours.get(day, {})
-            if hours:
-                formatted[day] = f"{hours.get('open', 'Closed')} - {hours.get('close', 'Closed')}"
+            raw = self.opening_hours.get(day.capitalize(), "Closed")
+
+            if isinstance(raw, str) and raw.lower() != 'closed' and '-' in raw:
+                open_time, close_time = raw.split('-', 1)
+                formatted[day] = f"{open_time.strip()} - {close_time.strip()}"
             else:
                 formatted[day] = "Closed"
+
         return formatted
 
 class DoctorProfile(models.Model):
